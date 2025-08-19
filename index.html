@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Request & Vote เพลง • DJ Room</title>
+  <style>
+    :root{--bg:#0b1020;--card:#121835;--muted:#aeb8d1;--accent:#63b3ff;--ok:#35d49a;--warn:#ffb454;--danger:#ff6b6b}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,Noto Sans Thai,sans-serif;background:linear-gradient(180deg,#0b1020,#0b1020 40%,#101736);color:#e9eefc}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #223}
+    header h1{font-size:20px;margin:0;letter-spacing:.3px}
+    header .room{font-size:12px;color:var(--muted)}
+    main{display:grid;grid-template-columns:380px 1fr;gap:16px;padding:16px}
+    .card{background:var(--card);border:1px solid #223;box-shadow:0 6px 24px rgba(0,0,0,.3);border-radius:16px}
+    .card h2{margin:0 0 8px 0;font-size:16px}
+    .pad{padding:16px}
+    .muted{color:var(--muted)}
+    label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
+    input[type=text]{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #2a3358;background:#0e1430;color:#e9eefc;outline:none}
+    input[type=text]:focus{border-color:#4563ff}
+    button{cursor:pointer;border:none;border-radius:12px;padding:10px 14px;background:#1b2350;color:#e9eefc}
+    button.primary{background:#2a58ff}
+    button.ghost{background:transparent;border:1px solid #334}
+    button.ok{background:var(--ok);color:#06121a}
+    button.warn{background:var(--warn);color:#201408}
+    button.danger{background:var(--danger)}
+    .stack{display:flex;flex-direction:column;gap:10px}
+    .row{display:flex;gap:8px;align-items:center}
+    .grid{display:grid;gap:10px}
+    .two{grid-template-columns:1fr 1fr}
+    .song{display:grid;grid-template-columns:48px 1fr auto;gap:10px;align-items:center;padding:12px;border-radius:12px;border:1px solid #283055;background:#0f1533}
+    .song .rank{width:48px;height:48px;display:grid;place-items:center;border-radius:12px;background:#111a3e;color:#8fb4ff;font-weight:700}
+    .song .meta{display:flex;flex-direction:column}
+    .song .meta .title{font-weight:600}
+    .song .meta .by{font-size:12px;color:var(--muted)}
+    .song .votes{display:flex;align-items:center;gap:6px}
+    .pill{display:inline-flex;gap:6px;align-items:center;background:#15204a;border:1px solid #2a345e;color:#9bb1ff;border-radius:999px;padding:6px 10px;font-size:12px}
+    .yt{aspect-ratio:16/9;width:100%;border:1px solid #223;border-radius:12px;overflow:hidden;background:#000;min-height:260px}
+    .qr{display:grid;place-items:center;min-height:260px}
+    .hint{font-size:12px;color:var(--muted)}
+    .foot{padding:10px 16px;border-top:1px dashed #2a2f55;color:#9fb}
+    .badge{font-size:11px;padding:3px 8px;border-radius:999px;background:#1a264c;border:1px solid #2a3f7d;color:#8fb4ff}
+    .sep{height:1px;background:#223;margin:10px 0}
+    .hidden{display:none}
+    .debug{white-space:pre-wrap;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;background:#0a1128;border:1px dashed #334;color:#9ff;padding:8px;border-radius:10px}
+    .banner{background:#1a263b;border:1px solid #2b3c5e;color:#cbe0ff;padding:8px 12px;border-radius:10px;margin:12px 16px}
+    @media(max-width:980px){main{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Request & Vote เพลง • DJ Room <span class="badge" id="ver" title="Single-file web app">v1.3.1</span></h1>
+      <div class="room" id="roomLabel"></div>
+    </div>
+    <div class="row">
+      <button class="ghost" id="copyLinkBtn">คัดลอกลิงก์ห้อง</button>
+      <button class="ghost" id="toggleDjBtn" title="โหมดดีเจ (ควบคุมการเล่น)">โหมดดีเจ</button>
+    </div>
+  </header>
+  <div id="banner" class="banner hidden"></div>
+  <main>
+    <section class="card">
+      <div class="pad stack">
+        <h2>สแกนเพื่อรีเควส/โหวต</h2>
+        <div class="qr" id="qr"></div>
+        <div class="hint">แชร์คิวอาร์นี้ให้ผู้ฟังเข้าหน้านี้เพื่อ <b>เพิ่มเพลง</b> และ <b>โหวต</b>. หรือส่งลิงก์: <span id="shareUrl" class="muted"></span></div>
+      </div>
+      <div class="sep"></div>
+      <div class="pad stack">
+        <h2>เพิ่มเพลงใหม่</h2>
+        <label>ลิงก์ YouTube <span class="muted">(รองรับทั้งรูปแบบเต็ม/สั้น)</span></label>
+        <input id="ytUrl" type="text" placeholder="https://youtu.be/… หรือ https://www.youtube.com/watch?v=…" />
+        <label>เขียนชื่อเพลง (ถ้าปล่อยว่าง ระบบจะดึงอัตโนมัติเมื่อเล่น)</label>
+        <input id="title" type="text" placeholder="เช่น กอดหมอน - Artist" />
+        <label>ชื่อผู้เสนอ (ไม่บังคับ)</label>
+        <input id="by" type="text" placeholder="ชื่อเล่นของคุณ" />
+        <div class="row">
+          <button class="primary" id="addBtn">เพิ่มเข้ารายชื่อ</button>
+          <span class="hint" id="addHint"></span>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="pad">
+        <details>
+          <summary>🛠️ Setup Checklist / Firestore Rules (คลิกเพื่อดู)</summary>
+          <div class="hint" style="margin-top:8px">
+            1) แทนที่ <code>firebaseConfig</code> ให้ถูกต้อง<br>
+            2) เปิด Firebase Auth → Anonymous sign-in<br>
+            3) เปิด Firestore (โหมด Production) แล้วใช้กฎ <b>ชั่วคราวสำหรับทดสอบ</b> ด้านล่างนี้
+<pre class="debug">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /rooms/{room}/songs/{song} {
+      allow read: if true;
+      allow create: if
+        request.resource.data.keys().hasOnly(['ytId','title','by','createdAt','votes','playCount','lastPlayedAt']) &&
+        request.resource.data.ytId is string &&
+        request.resource.data.ytId.size() > 5 &&
+        request.resource.data.votes is map;
+      allow update: if request.resource.data.diff(resource.data).changedKeys().hasOnly(['votes','lastPlayedAt','playCount','title','by']);
+      allow delete: if true;
+    }
+  }
+}</pre>
+          </div>
+        </details>
+      </div>
+    </section>
+    <section class="card">
+      <div class="pad grid two">
+        <div>
+          <h2>คิวเพลง / โหวตยอดนิยม</h2>
+          <div class="hint">โหวตได้ 1 ครั้งต่อเพลงต่ออุปกรณ์ • เรียงตามจำนวนโหวต</div>
+        </div>
+        <div class="row" style="justify-content:flex-end">
+          <button id="refreshBtn" class="ghost">รีเฟรช</button>
+          <button id="playTopBtn" class="warn hidden">ดีเจ: เปิดเพลงที่ได้โหวตสูงสุด</button>
+          <button id="clearBtn" class="danger hidden">ดีเจ: ล้างรายการทั้งหมด</button>
+        </div>
+      </div>
+      <div class="pad" id="list"></div>
+      <div class="sep"></div>
+      <div class="pad">
+        <h2>YouTube Player</h2>
+        <div id="player" class="yt"></div>
+        <div class="foot">คำแนะนำ: เปิดหน้านี้ไว้ที่เครื่องของดีเจ/สตรีมเมอร์ ส่วนผู้ฟังเข้าด้วยมือถือผ่าน QR</div>
+      </div>
+      <div class="pad">
+        <details>
+          <summary>🧪 Developer Debug / Self-tests</summary>
+          <div id="debug" class="debug">(รันอัตโนมัติบนโหลดหน้า)</div>
+        </details>
+      </div>
+    </section>
+  </main>
+  <script type="module">
+    // ---- Firebase client config (แทนค่าจริงก่อนใช้) ----
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    function isConfigValid(cfg){
+      const vals = Object.values(cfg||{});
+      return vals.length >= 6 && vals.every(v => typeof v === 'string' && !v.startsWith('YOUR_'));
+    }
+
+    // อ่านค่าห้อง/ดีเจจาก query string
+    const url = new URL(window.location.href);
+    const ROOM = url.searchParams.get('room') || 'main';
+    const IS_DJ = url.searchParams.get('dj') === '1';
+    document.getElementById('roomLabel').textContent = `Room: ${ROOM}${IS_DJ ? ' • DJ' : ''}`;
+
+    // Firebase SDK (ESM)
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
+    import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
+    import { getFirestore, collection, addDoc, getDocs, onSnapshot, serverTimestamp, updateDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
+
+    let app, auth, db;
+    const banner = document.getElementById('banner');
+    const FIREBASE_ENABLED = isConfigValid(firebaseConfig);
+    if (FIREBASE_ENABLED){
+      try{ app = initializeApp(firebaseConfig); auth = getAuth(app); db = getFirestore(app); }
+      catch(err){ showBanner(`❗ Firebase init error: ${err?.message||err}`); }
+    } else {
+      showBanner('ℹ️ ยังไม่ได้ตั้งค่า firebaseConfig (โหมดสาธิต — ไม่มีการซิงค์ระหว่างอุปกรณ์)');
+    }
+
+    let uid = localStorage.getItem('dj_uid');
+    if (!uid){ uid = `local_${Math.random().toString(36).slice(2)}`; localStorage.setItem('dj_uid', uid); }
+    if (FIREBASE_ENABLED){
+      try{ await signInAnonymously(auth); uid = auth.currentUser?.uid || uid; }
+      catch(e){ showBanner(`⚠️ Anonymous auth ล้มเหลว (${e.code||''}): ${e.message}. จะใช้ไอดีท้องถิ่นแทน`); }
+    }
+
+    const songsPath = `rooms/${ROOM}/songs`;
+    const listEl = document.getElementById('list');
+    const addBtn = document.getElementById('addBtn');
+    const addHint = document.getElementById('addHint');
+    const ytUrl = document.getElementById('ytUrl');
+    const title = document.getElementById('title');
+    const by = document.getElementById('by');
+    const playTopBtn = document.getElementById('playTopBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const toggleDjBtn = document.getElementById('toggleDjBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+    function human(n){ return new Intl.NumberFormat().format(n); }
+
+    function extractYouTubeId(link){
+      try{
+        const u = new URL(link);
+        const host = u.hostname.replace('www.','');
+        if(host === 'youtu.be') return u.pathname.slice(1);
+        if(host === 'youtube.com' || host === 'm.youtube.com'){
+          if(u.searchParams.get('v')) return u.searchParams.get('v');
+          const mShorts = u.pathname.match(/\/shorts\/([a-zA-Z0-9_-]{6,})/);
+          if(mShorts) return mShorts[1];
+        }
+      }catch(e){}
+      return null;
+    }
+    function countSegments(p){ return (p||'').split('/').filter(Boolean).length; }
+    function validateDocRef(ref){
+      if(!ref || typeof ref.path !== 'string'){ throw new Error('invalid-ref: missing path'); }
+      const segs = countSegments(ref.path);
+      if(segs % 2 !== 0){ throw new Error(`invalid-ref: ${ref.path} has ${segs} segments (must be even)`); }
+      return true;
+    }
+
+    const share = `${location.origin}${location.pathname}?room=${encodeURIComponent(ROOM)}`;
+    document.getElementById('shareUrl').textContent = share;
+    document.getElementById('copyLinkBtn').onclick = async ()=>{ try{ await navigator.clipboard.writeText(share); alert('คัดลอกลิงก์แล้ว'); }catch{} };
+
+    async function loadQrLibWithFallback(){
+      const sources = [
+        'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js',
+        'https://unpkg.com/qrcode/build/qrcode.min.js',
+        'https://cdn.skypack.dev/qrcode/build/qrcode.min.js'
+      ];
+      for (const src of sources){
+        try { await new Promise((res, rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=()=>res(); s.onerror=()=>rej(); document.head.appendChild(s); }); if (window.QRCode) return true; } catch {}
+      }
+      return false;
+    }
+    (async ()=>{
+      const ok = await loadQrLibWithFallback();
+      const qrEl = document.getElementById('qr');
+      try{
+        if(ok && window.QRCode){
+          window.QRCode.toCanvas(share, {width: 256, margin: 1, color:{dark:'#e9eefc', light:'#0b1020'}}, (err,canvas)=>{ if(!err){ qrEl.innerHTML=''; qrEl.appendChild(canvas); } else { throw err; } });
+        } else {
+          const img = new Image(); img.width=256; img.height=256; img.alt='QR'; img.src=`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(share)}`; qrEl.innerHTML=''; qrEl.appendChild(img);
+        }
+      }catch(e){ const fallback=document.createElement('div'); fallback.className='debug'; fallback.textContent=`ไม่สามารถสร้าง QR ได้\nโปรดใช้ลิงก์นี้แทน:\n${share}`; qrEl.innerHTML=''; qrEl.appendChild(fallback); }
+    })();
+
+    const store = (FIREBASE_ENABLED && db) ? makeFirestoreStore() : makeLocalStore();
+
+    function makeLocalStore(){
+      const KEY = `djroom_local_${ROOM}`;
+      const load = ()=>{ try{ return JSON.parse(localStorage.getItem(KEY)||'[]'); }catch{ return []; } };
+      const save = (arr)=> localStorage.setItem(KEY, JSON.stringify(arr));
+      let listeners = [];
+      return {
+        async add(song){ const arr = load(); arr.push({...song, _id: crypto.randomUUID(), createdAt: Date.now(), votes: {[uid]: true}, playCount:0, lastPlayedAt:null}); save(arr); emit(); },
+        async vote(id){ const arr = load(); const s = arr.find(x=>x._id===id); if(!s) return; s.votes = s.votes||{}; if(s.votes[uid]) throw new Error('already-voted'); s.votes[uid]=true; save(arr); emit(); },
+        async play(id){ const arr=load(); const s=arr.find(x=>x._id===id); if(!s) return; s.playCount=(s.playCount||0)+1; s.lastPlayedAt=Date.now(); save(arr); emit(); },
+        async remove(id){ const arr=load().filter(x=>x._id!==id); save(arr); emit(); },
+        async all(){ return load(); },
+        subscribe(cb){ listeners.push(cb); cb(load()); return ()=>{ listeners = listeners.filter(x=>x!==cb); }; }
+      };
+      function emit(){ listeners.forEach(cb=>cb(load())); }
+    }
+
+    function makeFirestoreStore(){
+      const songsCol = collection(db, songsPath);
+      return {
+        async add(song){ try{ await addDoc(songsCol, { ytId: song.ytId, title: song.title||'', by: song.by||'', createdAt: serverTimestamp(), votes: {[uid]: true}, playCount: 0, lastPlayedAt: null }); }catch(e){ handleFirestoreError(e, 'add'); throw e; } },
+        async vote(ref){ try{ validateDocRef(ref); await updateDoc(ref, { ["votes."+uid]: true }); }catch(e){ handleFirestoreError(e, 'vote'); throw e; } },
+        async play(ref, playCount){ try{ validateDocRef(ref); await updateDoc(ref, { lastPlayedAt: serverTimestamp(), playCount: (playCount||0)+1 }); }catch(e){ handleFirestoreError(e, 'play'); throw e; } },
+        async remove(ref){ try{ validateDocRef(ref); await deleteDoc(ref); }catch(e){ handleFirestoreError(e, 'remove'); throw e; } },
+        async all(){ const snap = await getDocs(songsCol); return snap.docs; },
+        subscribe(cb){ return onSnapshot(songsCol, (snap)=> cb(snap.docs)); },
+        _col: songsCol
+      };
+    }
+
+    function handleFirestoreError(e, phase){
+      const path = e?.ref?.path || '';
+      const msg = `Firestore ${phase} error (${e.code||'no-code'}): ${e.message||e}${path?`\nref: ${path}`:''}`;
+      showBanner(`❌ ${msg} \nตรวจ Firestore Rules / เรียกใช้เอกสารให้ถูกต้อง (แม้จำนวน segments ต้องเป็นเลขคู่)`);
+      console.error(msg, e);
+    }
+    function showBanner(text){ banner.textContent = text; banner.classList.remove('hidden'); }
+    function votesCount(v){ return v ? Object.keys(v).length : 0; }
+    function sortDocs(docs){
+      const getData = (d)=> d?.data ? d.data() : d;
+      const getCreated = (d)=>{ const x = getData(d).createdAt; return (x && typeof x.toMillis === 'function') ? x.toMillis() : (typeof x === 'number' ? x : 0); };
+      return [...docs].sort((a,b)=>{ const va=votesCount(getData(a).votes), vb=votesCount(getData(b).votes); if(vb!==va) return vb-va; const ta=getCreated(a), tb=getCreated(b); return ta-tb; });
+    }
+    function renderSongItem(d, idx){
+      const data = d?.data ? d.data() : d;
+      const ref = d?.ref || (d?._id ? { _id: d._id } : null);
+      const vcount = votesCount(data.votes);
+      const el = document.createElement('div');
+      el.className = 'song';
+      el.innerHTML = `
+        <div class="rank">${idx+1}</div>
+        <div class="meta">
+          <div class="title">${(data.title||('🎵 '+data.ytId)).replace(/[<>]/g,'')}</div>
+          <div class="by">จาก: ${(data.by||'ไม่ระบุ').replace(/[<>]/g,'')} · <span class="pill">โหวต: <b>${human(vcount)}</b></span></div>
+        </div>
+        <div class="votes">
+          <button class="ok" data-act="vote">โหวต</button>
+          ${IS_DJ ? '<button class="warn" data-act="play">เล่น</button>' : ''}
+          ${IS_DJ ? '<button class="ghost" data-act="remove">ลบ</button>' : ''}
+        </div>`;
+      el.querySelector('[data-act="vote"]').onclick = async ()=>{
+        try{
+          if (d?._id){ await store.vote(d._id); }
+          else { const current = data.votes || {}; if(current[uid]){ alert('คุณโหวตเพลงนี้แล้ว'); return; } await store.vote(ref); }
+        }catch(err){ if(String(err).includes('already-voted')) alert('คุณโหวตเพลงนี้แล้ว'); }
+      };
+      if(IS_DJ){
+        el.querySelector('[data-act="play"]').onclick = async ()=>{
+          playYouTube(data.ytId);
+          try{ if (d?._id) await store.play(d._id); else await store.play(ref, data.playCount); }catch{}
+        };
+        el.querySelector('[data-act="remove"]').onclick = async ()=>{
+          if(!confirm('ลบเพลงนี้ออกจากรายการ?')) return;
+          const btn = el.querySelector('[data-act="remove"]');
+          btn.disabled = true;
+          try{ if (d?._id) await store.remove(d._id); else await store.remove(ref); }
+          catch(e){ alert('ลบไม่สำเร็จ: '+(e.message||e)); }
+          btn.disabled = false;
+        };
+      }
+      return el;
+    }
+    function renderList(docs){ const sorted = sortDocs(docs||[]); listEl.innerHTML = ''; sorted.forEach((d,i)=> listEl.appendChild(renderSongItem(d,i))); }
+    if (store.subscribe){ store.subscribe(renderList); }
+    refreshBtn.onclick = async ()=>{ listEl.classList.add('hidden'); await sleep(100); listEl.classList.remove('hidden'); };
+
+    addBtn.onclick = async ()=>{
+      const link = ytUrl.value.trim();
+      const id = extractYouTubeId(link);
+      if(!id){ addHint.textContent = 'ลิงก์ YouTube ไม่ถูกต้อง'; return; }
+      addBtn.disabled = true; addHint.textContent = 'กำลังเพิ่ม…';
+      try{ await store.add({ ytId: id, title: title.value.trim(), by: by.value.trim() }); ytUrl.value=''; title.value=''; addHint.textContent='เพิ่มแล้ว!'; await sleep(600); addHint.textContent=''; }
+      catch(e){ addHint.textContent = 'เพิ่มไม่สำเร็จ: '+(e.message||e); }
+      addBtn.disabled = false;
+    };
+
+    let player; let playerReady=false; let pendingVideoId=null;
+    function onYouTubeIframeAPIReady(){
+      player = new YT.Player('player', {
+        height:'390', width:'640', videoId: pendingVideoId || undefined,
+        playerVars:{autoplay:1,controls:1,rel:0,modestbranding:1,playsinline:1},
+        events:{ onReady:()=>{ playerReady=true; if(pendingVideoId){ player.loadVideoById(pendingVideoId); pendingVideoId=null; } } }
+      });
+    }
+    function embedFallback(id){
+      const el = document.getElementById('player');
+      el.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${id}?autoplay=1&rel=0&modestbranding=1&playsinline=1" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+    }
+    function playYouTube(id){
+      if(window.YT && playerReady && player){ player.loadVideoById(id); return; }
+      if(window.YT && !player){ pendingVideoId=id; onYouTubeIframeAPIReady(); return; }
+      pendingVideoId=id; setTimeout(()=>{ if(!playerReady){ embedFallback(id); } }, 1500);
+    }
+    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+    const yts=document.createElement('script'); yts.src='https://www.youtube.com/iframe_api'; document.head.appendChild(yts);
+
+    function renderDjControls(){ if(IS_DJ){ playTopBtn.classList.remove('hidden'); clearBtn.classList.remove('hidden'); } }
+    renderDjControls();
+
+    playTopBtn.onclick = async ()=>{
+      if (store._col){ const docs = await store.all(); const top = sortDocs(docs)[0]; if(!top){ alert('ยังไม่มีเพลง'); return; } const data = top.data(); playYouTube(data.ytId); try{ await store.play(top.ref, data.playCount); }catch{} }
+      else { const docs = await store.all(); const top = sortDocs(docs)[0]; if(!top){ alert('ยังไม่มีเพลง'); return; } playYouTube(top.ytId); try{ await store.play(top._id); }catch{} }
+    };
+
+    clearBtn.onclick = async ()=>{
+      if(!confirm('ล้างรายการทั้งหมดของห้องนี้จริงไหม?')) return;
+      if (store._col){ const snap = await getDocs(store._col); await Promise.all(snap.docs.map(d=> store.remove(d.ref))); }
+      else { const all = await store.all(); await Promise.all(all.map(d=> store.remove(d._id))); }
+      alert('ล้างเรียบร้อย');
+    };
+
+    (function runTests(){
+      const log = [];
+      function assertEq(name, a, b){ const ok = a===b; log.push(`${ok?'✅':'❌'} ${name}: ${a} ${ok?'==':'!='} ${b}`); if(!ok) console.error('[TEST FAIL]', name, a, b); }
+      function assertThrows(name, fn){ try{ fn(); log.push('❌ '+name+': did not throw'); }catch{ log.push('✅ '+name+': threw as expected'); } }
+      assertEq('yt.be basic', extractYouTubeId('https://youtu.be/abcDEF123'), 'abcDEF123');
+      assertEq('youtube v= param', extractYouTubeId('https://www.youtube.com/watch?v=ZZZ-999_aaa'), 'ZZZ-999_aaa');
+      assertEq('shorts path', extractYouTubeId('https://youtube.com/shorts/QwErTy12345?feature=share'), 'QwErTy12345');
+      assertEq('bad url', extractYouTubeId('not-a-url'), null);
+      const docs = [
+        { ytId:'1', votes:{a:true,b:true}, createdAt: 1000 },
+        { ytId:'2', votes:{a:true}, createdAt:  500 },
+        { ytId:'3', votes:{a:true,b:true,c:true}, createdAt: 1500 }
+      ];
+      const srt = sortDocs(docs).map(x=>x.ytId).join(',');
+      assertEq('sort by votes then time', srt, '3,1,2');
+      assertEq('segments ok (4)', countSegments('rooms/main/songs/abc'), 4);
+      assertEq('segments bad (5)', countSegments('rooms/main/songs/abc/xyz'), 5);
+      assertThrows('validateRef throws on odd segments', ()=> validateDocRef({path:'rooms/main/songs/abc/xyz'}));
+      assertEq('validateRef ok on even', (()=>{ try{ return !!validateDocRef({path:'rooms/main/songs/abc'}); }catch{ return false; } })(), true);
+      document.getElementById('debug').textContent = log.join('\n');
+    })();
+
+    toggleDjBtn.onclick = ()=>{
+      const u = new URL(location.href);
+      u.searchParams.set('room', ROOM);
+      u.searchParams.set('dj', IS_DJ ? '0' : '1');
+      location.href = u.toString();
+    };
+  </script>
+</body>
+</html>
