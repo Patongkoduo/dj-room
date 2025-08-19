@@ -36,7 +36,7 @@
     .song .meta .by{font-size:12px;color:var(--muted)}
     .song .votes{display:flex;align-items:center;gap:6px}
     .pill{display:inline-flex;gap:6px;align-items:center;background:#15204a;border:1px solid #2a345e;color:#9bb1ff;border-radius:999px;padding:6px 10px;font-size:12px}
-    .yt{aspect-ratio:16/9;width:100%;border:1px solid #223;border-radius:12px;overflow:hidden;background:#000;min-height:260px}
+    .yt{aspect-ratio:16/9;width:100%;border:1px solid #223;border-radius:12px;overflow:hidden;background:#000}
     .qr{display:grid;place-items:center;min-height:260px}
     .hint{font-size:12px;color:var(--muted)}
     .foot{padding:10px 16px;border-top:1px dashed #2a2f55;color:#9fb}
@@ -136,7 +136,6 @@ service cloud.firestore {
     </section>
   </main>
   <script type="module">
-    // ---- Firebase client config (แทนค่าจริงก่อนใช้) ----
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
       authDomain: "YOUR_AUTH_DOMAIN",
@@ -149,18 +148,13 @@ service cloud.firestore {
       const vals = Object.values(cfg||{});
       return vals.length >= 6 && vals.every(v => typeof v === 'string' && !v.startsWith('YOUR_'));
     }
-
-    // อ่านค่าห้อง/ดีเจจาก query string
     const url = new URL(window.location.href);
     const ROOM = url.searchParams.get('room') || 'main';
     const IS_DJ = url.searchParams.get('dj') === '1';
     document.getElementById('roomLabel').textContent = `Room: ${ROOM}${IS_DJ ? ' • DJ' : ''}`;
-
-    // Firebase SDK (ESM)
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
     import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
     import { getFirestore, collection, addDoc, getDocs, onSnapshot, serverTimestamp, updateDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
-
     let app, auth, db;
     const banner = document.getElementById('banner');
     const FIREBASE_ENABLED = isConfigValid(firebaseConfig);
@@ -170,14 +164,12 @@ service cloud.firestore {
     } else {
       showBanner('ℹ️ ยังไม่ได้ตั้งค่า firebaseConfig (โหมดสาธิต — ไม่มีการซิงค์ระหว่างอุปกรณ์)');
     }
-
     let uid = localStorage.getItem('dj_uid');
     if (!uid){ uid = `local_${Math.random().toString(36).slice(2)}`; localStorage.setItem('dj_uid', uid); }
     if (FIREBASE_ENABLED){
       try{ await signInAnonymously(auth); uid = auth.currentUser?.uid || uid; }
       catch(e){ showBanner(`⚠️ Anonymous auth ล้มเหลว (${e.code||''}): ${e.message}. จะใช้ไอดีท้องถิ่นแทน`); }
     }
-
     const songsPath = `rooms/${ROOM}/songs`;
     const listEl = document.getElementById('list');
     const addBtn = document.getElementById('addBtn');
@@ -191,7 +183,6 @@ service cloud.firestore {
     const refreshBtn = document.getElementById('refreshBtn');
     const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
     function human(n){ return new Intl.NumberFormat().format(n); }
-
     function extractYouTubeId(link){
       try{
         const u = new URL(link);
@@ -212,11 +203,9 @@ service cloud.firestore {
       if(segs % 2 !== 0){ throw new Error(`invalid-ref: ${ref.path} has ${segs} segments (must be even)`); }
       return true;
     }
-
-    const share = `${location.origin}${location.pathname}?room=${encodeURIComponent(ROOM)}`;
+    const share = `${location.origin || (location.protocol+'//'+location.host)}${location.pathname}?room=${encodeURIComponent(ROOM)}`;
     document.getElementById('shareUrl').textContent = share;
     document.getElementById('copyLinkBtn').onclick = async ()=>{ try{ await navigator.clipboard.writeText(share); alert('คัดลอกลิงก์แล้ว'); }catch{} };
-
     async function loadQrLibWithFallback(){
       const sources = [
         'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js',
@@ -239,9 +228,7 @@ service cloud.firestore {
         }
       }catch(e){ const fallback=document.createElement('div'); fallback.className='debug'; fallback.textContent=`ไม่สามารถสร้าง QR ได้\nโปรดใช้ลิงก์นี้แทน:\n${share}`; qrEl.innerHTML=''; qrEl.appendChild(fallback); }
     })();
-
     const store = (FIREBASE_ENABLED && db) ? makeFirestoreStore() : makeLocalStore();
-
     function makeLocalStore(){
       const KEY = `djroom_local_${ROOM}`;
       const load = ()=>{ try{ return JSON.parse(localStorage.getItem(KEY)||'[]'); }catch{ return []; } };
@@ -257,7 +244,6 @@ service cloud.firestore {
       };
       function emit(){ listeners.forEach(cb=>cb(load())); }
     }
-
     function makeFirestoreStore(){
       const songsCol = collection(db, songsPath);
       return {
@@ -270,7 +256,6 @@ service cloud.firestore {
         _col: songsCol
       };
     }
-
     function handleFirestoreError(e, phase){
       const path = e?.ref?.path || '';
       const msg = `Firestore ${phase} error (${e.code||'no-code'}): ${e.message||e}${path?`\nref: ${path}`:''}`;
@@ -326,7 +311,6 @@ service cloud.firestore {
     function renderList(docs){ const sorted = sortDocs(docs||[]); listEl.innerHTML = ''; sorted.forEach((d,i)=> listEl.appendChild(renderSongItem(d,i))); }
     if (store.subscribe){ store.subscribe(renderList); }
     refreshBtn.onclick = async ()=>{ listEl.classList.add('hidden'); await sleep(100); listEl.classList.remove('hidden'); };
-
     addBtn.onclick = async ()=>{
       const link = ytUrl.value.trim();
       const id = extractYouTubeId(link);
@@ -336,9 +320,9 @@ service cloud.firestore {
       catch(e){ addHint.textContent = 'เพิ่มไม่สำเร็จ: '+(e.message||e); }
       addBtn.disabled = false;
     };
-
-    let player; let playerReady=false; let pendingVideoId=null;
+    let player; let apiReady=false; let playerReady=false; let pendingVideoId=null;
     function onYouTubeIframeAPIReady(){
+      apiReady=true;
       player = new YT.Player('player', {
         height:'390', width:'640', videoId: pendingVideoId || undefined,
         playerVars:{autoplay:1,controls:1,rel:0,modestbranding:1,playsinline:1},
@@ -356,22 +340,18 @@ service cloud.firestore {
     }
     window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
     const yts=document.createElement('script'); yts.src='https://www.youtube.com/iframe_api'; document.head.appendChild(yts);
-
     function renderDjControls(){ if(IS_DJ){ playTopBtn.classList.remove('hidden'); clearBtn.classList.remove('hidden'); } }
     renderDjControls();
-
     playTopBtn.onclick = async ()=>{
       if (store._col){ const docs = await store.all(); const top = sortDocs(docs)[0]; if(!top){ alert('ยังไม่มีเพลง'); return; } const data = top.data(); playYouTube(data.ytId); try{ await store.play(top.ref, data.playCount); }catch{} }
       else { const docs = await store.all(); const top = sortDocs(docs)[0]; if(!top){ alert('ยังไม่มีเพลง'); return; } playYouTube(top.ytId); try{ await store.play(top._id); }catch{} }
     };
-
     clearBtn.onclick = async ()=>{
       if(!confirm('ล้างรายการทั้งหมดของห้องนี้จริงไหม?')) return;
       if (store._col){ const snap = await getDocs(store._col); await Promise.all(snap.docs.map(d=> store.remove(d.ref))); }
       else { const all = await store.all(); await Promise.all(all.map(d=> store.remove(d._id))); }
       alert('ล้างเรียบร้อย');
     };
-
     (function runTests(){
       const log = [];
       function assertEq(name, a, b){ const ok = a===b; log.push(`${ok?'✅':'❌'} ${name}: ${a} ${ok?'==':'!='} ${b}`); if(!ok) console.error('[TEST FAIL]', name, a, b); }
@@ -393,63 +373,7 @@ service cloud.firestore {
       assertEq('validateRef ok on even', (()=>{ try{ return !!validateDocRef({path:'rooms/main/songs/abc'}); }catch{ return false; } })(), true);
       document.getElementById('debug').textContent = log.join('\n');
     })();
-
-    toggleDjBtn.onclick = ()=>{
-      const u = new URL(location.href);
-      u.searchParams.set('room', ROOM);
-      u.searchParams.set('dj', IS_DJ ? '0' : '1');
-      location.href = u.toString();
-    };
-  </script>
-  <script src="https://www.youtube.com/iframe_api"></script>
-    <div id="player" style="width:100%;height:360px;background:#000"></div>
-
-  <!-- สคริปต์อื่น ๆ ของคุณ -->
-  <script>
-    toggleDjBtn.onclick = ()=>{
-      const u = new URL(location.href);
-      u.searchParams.set('room', ROOM);
-      u.searchParams.set('dj', IS_DJ ? '0' : '1');
-      location.href = u.toString();
-    };
-  </script>
-
-  <!-- สคริปต์ YouTube Player -->
-  <script>
-    let player, playerReady = false, pendingVideoId = null;
-
-    function onYouTubeIframeAPIReady(){
-      player = new YT.Player('player', {
-        videoId: pendingVideoId || undefined,
-        playerVars:{autoplay:1, controls:1, rel:0, modestbranding:1, playsinline:1, mute:1},
-        events:{
-          onReady: () => { playerReady = true; if(pendingVideoId){ player.loadVideoById(pendingVideoId); pendingVideoId = null; } },
-          onError: e => {
-            const codes = {2:'ID วิดีโอไม่ถูกต้อง',5:'ปัญหาการเล่นบน HTML5',100:'วิดีโอถูกลบ/เป็นส่วนตัว',101:'เจ้าของปิดไม่ให้ฝัง',150:'เหมือน 101'};
-            const msg = codes[e.data] || ('YouTube error: '+e.data);
-            const el = document.getElementById('player');
-            el.innerHTML = '<div style="padding:16px;color:#f88;font-family:ui-monospace">'+msg+'</div>';
-          }
-        }
-      });
-    }
-
-    function embedFallback(id){
-      const el = document.getElementById('player');
-      el.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${id}?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-    }
-
-    function playYouTube(id){
-      if(window.YT && playerReady && player){ player.loadVideoById(id); return; }
-      if(window.YT && !player){ pendingVideoId = id; onYouTubeIframeAPIReady(); return; }
-      pendingVideoId = id; setTimeout(()=>{ if(!playerReady){ embedFallback(id); } }, 1500);
-    }
-
-    const yts = document.createElement('script'); 
-    yts.src='https://www.youtube.com/iframe_api'; 
-    document.head.appendChild(yts);
-
-    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+    toggleDjBtn.onclick = ()=>{ const u = new URL(location.href); u.searchParams.set('room', ROOM); u.searchParams.set('dj', IS_DJ ? '0' : '1'); location.href = u.toString(); };
   </script>
 </body>
 </html>
