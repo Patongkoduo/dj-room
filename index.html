@@ -402,5 +402,54 @@ service cloud.firestore {
     };
   </script>
   <script src="https://www.youtube.com/iframe_api"></script>
+    <div id="player" style="width:100%;height:360px;background:#000"></div>
+
+  <!-- สคริปต์อื่น ๆ ของคุณ -->
+  <script>
+    toggleDjBtn.onclick = ()=>{
+      const u = new URL(location.href);
+      u.searchParams.set('room', ROOM);
+      u.searchParams.set('dj', IS_DJ ? '0' : '1');
+      location.href = u.toString();
+    };
+  </script>
+
+  <!-- สคริปต์ YouTube Player -->
+  <script>
+    let player, playerReady = false, pendingVideoId = null;
+
+    function onYouTubeIframeAPIReady(){
+      player = new YT.Player('player', {
+        videoId: pendingVideoId || undefined,
+        playerVars:{autoplay:1, controls:1, rel:0, modestbranding:1, playsinline:1, mute:1},
+        events:{
+          onReady: () => { playerReady = true; if(pendingVideoId){ player.loadVideoById(pendingVideoId); pendingVideoId = null; } },
+          onError: e => {
+            const codes = {2:'ID วิดีโอไม่ถูกต้อง',5:'ปัญหาการเล่นบน HTML5',100:'วิดีโอถูกลบ/เป็นส่วนตัว',101:'เจ้าของปิดไม่ให้ฝัง',150:'เหมือน 101'};
+            const msg = codes[e.data] || ('YouTube error: '+e.data);
+            const el = document.getElementById('player');
+            el.innerHTML = '<div style="padding:16px;color:#f88;font-family:ui-monospace">'+msg+'</div>';
+          }
+        }
+      });
+    }
+
+    function embedFallback(id){
+      const el = document.getElementById('player');
+      el.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${id}?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+    }
+
+    function playYouTube(id){
+      if(window.YT && playerReady && player){ player.loadVideoById(id); return; }
+      if(window.YT && !player){ pendingVideoId = id; onYouTubeIframeAPIReady(); return; }
+      pendingVideoId = id; setTimeout(()=>{ if(!playerReady){ embedFallback(id); } }, 1500);
+    }
+
+    const yts = document.createElement('script'); 
+    yts.src='https://www.youtube.com/iframe_api'; 
+    document.head.appendChild(yts);
+
+    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+  </script>
 </body>
 </html>
